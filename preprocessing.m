@@ -1,3 +1,5 @@
+%% create preproc folder
+mkdir preproc
 %% all sujet train
 
 clear all;
@@ -50,3 +52,6 @@ for user = sujet
     
     save(['preproc/test' Nuser '.mat'],'X');
 end
+
+%% 
+disp('Preprocessing Done, run final_submission.m next');
