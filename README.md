@@ -5,8 +5,10 @@ Winning submission for the DecMeg2014 Challenge
 Usage : 
 
 * put data from the challenge to the data folder
-* run preproc script : `run preprocessing.m`
-* run final script : `run final_submission.m`
+* Download and install the covariance toolbox : https://github.com/alexandrebarachant/covariancetoolbox
+* Open matlab
+* Run preproc script : `run preprocessing.m`
+* Run final script : `run final_submission.m`
 
 Author : Alexandre Barachant
 
