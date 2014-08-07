@@ -28,7 +28,12 @@ These two steps are build upon methods originally devoted to classification of P
 \section{Introduction}
 It is well known that EEG and MEG signals are very specific to each subject. Indeed, the organization and orientation of the cortical dipoles is slightly different for each individual. As a result, establishing a generic model, which gives high classification performance, is a very difficult task. With the exception of some special cases, a subject-specific model is always better than a generic model.
 
-....
+In addition, MEG signals are really noisy, and are recordings of the whole brain activity, including from parts of the brain which are not related to the task. This makes the classification task more difficult, since the unwanted activities share some common statistical properties with the signal of interest. Some of the channels contains more useful information than others, for example those around the visual cortex. However, the other channels are also useful to some degree, since they can give insights on the nature of the noise or on non-task related activity. For this reason, the MEG/EEG community has developed methods called \textbf{spatial filtering}. Spatial filtering is an operation (usually, a linear combination of the original channels) that produce virtual channels by focusing on a particular part of the brain (or a particular activity) and discarding the irrelevant informations. Those methods could be blind, i.e. based only on statistical properties of the signal of interest, or not, by using a head model and inverse solution.
+Spatial filters are very specific to each subjects, and generalize badly between subjects.
+
+For all those reasons, the wining solution should use adaptation or unsupervised training to fit the data of the test subject. Given the fact that the class are not well separated and that the signal is high dimensional, developing an efficient and stable clustering method is tricky.
+
+During the past years, I have developed an innovative frameworks for classification of EEG signal using Riemannian Geometry~\cite{TBME,NEUROCOMP,Axiv1}. The general idea is to use covariance matrices as features for the classification, and a Riemannian metric to manipulate them. This framework features good generalization between subjects and robustness to artefacts and bad labels (among other interesting properties). It is the perfect candidate to build an efficient unsupervised method.
 
 \section{Method}
 \subsection{preprocessing}
@@ -72,7 +77,7 @@ Note that the features are not in the usual form of vectors, they are matrices. 
 
 \subsection{Riemannian Geometry}
 \paragraph{Riemannian Distance :}
-For two covariance matrix $(\mathbf{\Sigma}_1$ and $\mathbf{\Sigma}_2) $, the Riemannian distance according to information geometry is given by~\cite{r}
+For two covariance matrix $(\mathbf{\Sigma}_1$ and $\mathbf{\Sigma}_2) $, the Riemannian distance according to information geometry is given by~\cite{moakher_differential_2005}
 \begin{equation}
 \label{eq:Rgeodistance}
 \delta_R(\mathbf{\Sigma}_1,\mathbf{\Sigma}_2) 
@@ -84,17 +89,6 @@ For two covariance matrix $(\mathbf{\Sigma}_1$ and $\mathbf{\Sigma}_2) $, the Ri
 where $\lambda_c, c=1\ldots C$ are the real eigenvalues 
 of $\mathbf{\Sigma}_1^{-1/2} \mathbf{\Sigma}_2 \mathbf{\Sigma}_1^{-1/2}$ and $C$ the number of electrodes.
  Note that this distance is also called \emph{Affine-invariant}~\cite{arsigny2007geometric}
-This distance has two important properties of invariance. First, the distance is invariant by inversion, i.e., 
-\begin{equation}
-\label{eq:invariance1}
-\delta_R(\mathbf{\Sigma}_1,\mathbf{\Sigma}_2) = \delta_R(\mathbf{\Sigma}^{-1}_1,\mathbf{\Sigma}^{-1}_2).
-\end{equation}
-
-Second, the distance is invariant by congruent transformation, meaning that for any invertible matrix $\mathbf{V} \in \mathcal{G}l(C)$ we have
-\begin{equation}
-\label{eq:invariance2}
-\delta_R(\mathbf{\Sigma}_1,\mathbf{\Sigma}_2) = \delta_R(\mathbf{V}^T\mathbf{\Sigma}_1\mathbf{V},\mathbf{V}^T\mathbf{\Sigma}_2\mathbf{V}).
-\end{equation}
 \paragraph{Riemannian Mean :}
 The Riemannian geometric mean of $I$ covariance matrices (denoted by $\mathfrak{G}(.)$), also called Fr\'echet mean, is defined as the matrix minimizing the sum of the squared Riemannian distances~\cite{pennec2006riemannian}, i.e.,
 
@@ -104,11 +98,10 @@ The Riemannian geometric mean of $I$ covariance matrices (denoted by $\mathfrak{
 \delta_R^2 \left( \mathbf{\Sigma},\mathbf{\Sigma}_i \right).
 \label{eq:geo_mean}
 \end{equation}
-There is no closed form expression for this mean, however a gradient descent in the manifold can be used in order to find the solution~\cite{pennec2006riemannian}. A matlab implementation is provided in a Matlab toolbox\footnote{http://github.com/alexandrebarachant/covariancetoolbox}.
-Note that the geometric mean inherits the properties of invariance from the distance.
+There is no closed form expression for this mean, however a gradient descent in the manifold can be used in order to find the solution. A matlab implementation is provided in a Matlab toolbox\footnote{http://github.com/alexandrebarachant/covariancetoolbox}.
 
-\paragraph{Tangent Space :} The tangent space is a local approximation of the manifold.
-...
+\paragraph{Tangent Space Mapping :} The tangent space mapping is an operation that project matrices from the manifold in a vector space named Tangent space. This tangent space is Euclidean and locally homomorphic to the manifold and Riemannian distance computations in the manifold can be well approximated by Euclidean distance computations in the tangent space. The idea is very similar to a kernel-mapping. 
+$n\times n$ covariances matrices are represented by vectors of dimension $n(n+1)/2$ in the tangent space. For more details about how this mapping is done, please refer to~\cite{NEUROCOMP}.
 
 \subsection{Generic Model}
 A generic model is build in order to achieve the best classification accuracy in Leave-One-Subject-Out cross-validation (LOSO-CV). The test labels obtained with the generic model will be usedas an initialisation for the unsupervised classification step. This generic model is build as follow : 
@@ -137,11 +130,11 @@ Lets denote by $y_{i,n}$ the label of the trial $i$ at the iteration $n$. The pr
 \item Stop if $y_{i,(n+1)}= y_{i,n}$ or if $n>10$. Restart to step 1 with the new labels $y_{i,(n+1)}$ if not.
 \end{enumerate}
 
-This second classification step allow to reach 75.8\% of accuracy in LOSO-CV, with a public leaderboard score of 0.774 (0.755 private). There is a risk that the algorithm does not converge for some subject (leading to a accuracy of 50\%). The critical part is the initialization and it is important that the generic model gives the best possible initialization.
+This second classification step allow to reach 75.8\% of accuracy in LOSO-CV, with a public leaderboard score of 0.774 (0.755 private). There is a risk that the algorithm does not converge for some subject. The critical part is the initialization and it is important that the generic model gives the best possible initialization.
 Note that if the labels are know, this procedure could be applied in a supervised way (or semi-supervised way), with only one iteration.
 
 \section{Results}
-
+The results are given in Table 1. Single stands for the method described in section 3.6 applied in 6-fold CV using data of a single subject with known labels. This represent the maximum achievable accuracy if we have training data with labels for the subject at hand. Generic is the method described in section 3.5, i.e the generic model only. Gen + Unsup is the combination of 3.5 and 3.6, i.e. the winning submission. Note that for two subjects, marked with a star, the unsupervised method did not converge, leading to a decrease in accuracy.
 
 \begin{table}[h]
 \begin{center}
@@ -169,10 +162,54 @@ Subject & Single & Generic    & Gen + Unsup     \\
 \hline
 \textbf{Mean (std) }   & \textbf{86.2 } (4.2) & \textbf{69.7} (5.3)& \textbf{75.8} (8.3) \\
 \hline
+public LB & NA & 69.8 & 77.8\\
+private LB & NA & 65.0 & 75.5\\
+\hline
 \hline
 \end{tabular}
+\caption{Classification accuracy for the different methods. The $*$ corresponds to the subjects where the usupervised method did not converge.}
 \end{center}
 \end{table}
 
+\section{Function and Code}
+The code is written in Matlab and is available here : 
+\begin{itemize}
+\item[-] https://github.com/alexandrebarachant/DecMeg2014
+\end{itemize}
+The code as a dependency to my covariance toolbox, available here : 
+\begin{itemize}
+\item[-] https://github.com/alexandrebarachant/covariancetoolbox
+\end{itemize}
 
+There is 2 scripts and 4 functions. The scripts :
+\begin{itemize}
+\item \textbf{preprocessing.m} : This script reads the raw data from the data folder, applies the preprocessing steps described in section 3.1, and saves the preprocessed data in the preproc folder.
+\item \textbf{final\_submission.m} : This script contains all the steps to generate the final solution.
+\end{itemize}
+The 4 function are : 
+\begin{itemize}
+\item \textbf{trainfilter.m} : This function generates the spatial filters and the averaged evoked potentials.
+\item \textbf{applyfilter.m} : Apply the filters and return a spatially filtered version of the trials.
+\item \textbf{extract\_features.m} : extract the features for the generic model.
+\item \textbf{mdmfilter.m} : this function contains all the steps for 1 iteration of the unsupervised classification.
+\end{itemize}
+\section{How to generate the solution}
+This code has been developed using a 16GB, intel i7-3632QM, linux laptop. The code is not optimized in terms of memory usage and can require up to 16GB of RAM. There is two dependency : my covariance toolbox (for all tge riemannian geometry related functions) and the statistical toolbox from matlab (for the function "lasso").
+To generate the solution : 
+\begin{enumerate}
+\item Download and install the covariance toolbox\footnote{https://github.com/alexandrebarachant/covariancetoolbox}
+\item Download the code\footnote{https://github.com/alexandrebarachant/DecMeg2014}
+\item Place data from the competition in the "data" folder.
+\item Run the preprocessing script : 'run preprocessing.m'
+\item Run the final submission script : 'run final\_submission.m' 
+\end{enumerate}
+
+\section{Additional information}
+As mentioned in the introduction, the best model is the model derived from the data of the subject itself. At the beginning of the competition, I focus on developing the best possible method for single subject classification. I came up pretty quickly to the solution  given in the function "mdmfilter.m". I have tried to keep thing as simple as possible to be able to implement an unsupervised procedure with this model. Then I have run some simulation to evaluate the behaviour of the unsupervised classification. It turns out that the method was robust to missclassified labels, and if you provide a good initialization (in the range of 65-70\% of accuracy), you have a very good chance of improving your results. The main challenge was to provide this good initialization. I tried several solutions, with very similar results (including more classical methods without Riemannian geometry). The generic model presented in this document was the best i could find in this limited time window. But there is room for improvement, for example by using covariate shift on the tangent space.
+
+For the generic model, I was not very happy to use spatial filtering. Spatial filtering generalize badly between subjects, and usually leads to a loss of information. But the Riemannian geometry frameworks can't be applied with a high number of electrodes. I developed method using electrodes selection or by combining classifier on random sub-set of electrodes. One of these methods gives very good results (0.766 on the private LB), but wasn't very stable.
+
+There is probably room for improvement, for example by applying my unsupervised procedure with an initialization provided by the methods of other competitors.
+\bibliographystyle{IEEEtran}
+\bibliography{biblio.bib}
 \end{document}
